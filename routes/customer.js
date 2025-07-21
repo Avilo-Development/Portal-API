@@ -5,7 +5,24 @@ const router = Router()
 const service = new CustomerService()
 
 router.get('/', async (req, res) => {
-    const customer = await service.getAll()
+    const query = req.query
+    console.log(query)
+    const customer = await service.getAll(query)
+    res.json(customer)
+})
+router.get('/:id', async (req, res) => {
+    const {id} = req.params
+    const customer = await service.getOne(id)
+    res.json(customer)
+})
+router.get('/by/:id', async (req, res) => {
+    const {id} = req.params
+    const customer = await service.getBy(id)
+    res.json(customer)
+})
+router.get('/total/:id', async (req, res) => {
+    const {id} = req.params
+    const customer = await service.getTotal(id)
     res.json(customer)
 })
 router.post('/', async (req,res) => {
