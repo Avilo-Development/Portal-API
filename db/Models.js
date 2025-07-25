@@ -104,6 +104,7 @@ const UserModel = sequelize.define('User',
         email:{
             type: DataTypes.STRING,
             allowNull:false,
+            unique: true,
         },
         phone:{
             type: DataTypes.STRING,
@@ -115,7 +116,32 @@ const UserModel = sequelize.define('User',
         password:{
             type: DataTypes.STRING,
             allowNull: false
+        },
+        verified:{
+            type: DataTypes.BOOLEAN,
+            allowNull: false,
+            defaultValue: 0
         }
+    }
+)
+
+const VerificationModel = sequelize.define('Verification',
+    {
+        id:{
+            type: DataTypes.STRING,
+            allowNull:false,
+            primaryKey: true,
+            unique: true,
+        },
+        code:{
+            type: DataTypes.STRING,
+            allowNull:false,
+        },
+        expires_at:{
+            type: DataTypes.DATE,
+            allowNull:false,
+            defaultValue: new Date(new Date().getTime() + 15 * 60 * 1000) // 15 minutes
+        },
     }
 )
 
@@ -129,7 +155,7 @@ const CustomerModel = sequelize.define('Customer',
         },
         name:{
             type: DataTypes.STRING,
-            allowNull:false,
+            allowNull:true,
         },
         active: {
             type: DataTypes.BOOLEAN,
@@ -150,8 +176,7 @@ const CustomerModel = sequelize.define('Customer',
 const AddressModel = sequelize.define('Address', 
     {
         id: {
-            type: DataTypes.UUID,
-            defaultValue: DataTypes.UUIDV4,
+            type: DataTypes.STRING,
             allowNull:false,
             primaryKey: true,
             unique: true,
@@ -224,7 +249,7 @@ const FinanceModel = sequelize.define('Finance', {
     },
     responsible_id: {
         type: DataTypes.UUID,
-        allowNull: false,
+        allowNull: true,
     },
     job_id:{
         type: DataTypes.STRING,
@@ -256,6 +281,10 @@ const FinanceModel = sequelize.define('Finance', {
         type: DataTypes.INTEGER,
         allowNull: true,
     },
+    discount: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+    },
     job_date: {
         type: DataTypes.DATE,
         allowNull: true,
@@ -267,11 +296,42 @@ const FinanceModel = sequelize.define('Finance', {
     invoice_paid_date: {
         type: DataTypes.DATE,
         allowNull: true,
-    }
+    },
+    service_date: {
+        type: DataTypes.DATE,
+        allowNull: true,
+    },
+    overdue: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
+        allowNull: true,
+    },
+
 
 })
 
-const CommentsModel = sequelize.define('Comments', {
+const RoleModel = sequelize.define('Role', {
+    id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        allowNull: false,
+        primaryKey: true
+    },
+    name: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
+    parent_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+    },
+    description: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    }
+})
+
+const CommentsModel = sequelize.define('Comment', {
     id: {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
@@ -289,6 +349,54 @@ const CommentsModel = sequelize.define('Comments', {
     status: {
         type: DataTypes.STRING,
         allowNull:false,
+    }
+})
+
+const NotificationModel = sequelize.define('Notification', {
+    id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        allowNull: false,
+        primaryKey: true
+    },
+    comment_id: {
+        type: DataTypes.UUID,
+        allowNull: false,
+    },
+    type: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: 'comment'
+    },
+    message: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
+})
+const NotificationViewModel = sequelize.define('NotificationView', {
+    id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        allowNull: false,
+        primaryKey: true
+    },
+    notification_id: {
+        type: DataTypes.UUID,
+        allowNull: false,
+    },
+    user_id: {
+        type: DataTypes.UUID,
+        allowNull: false,
+    },
+    viewed: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
+    },
+    viewed_at: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        defaultValue: null
     }
 })
 
@@ -336,7 +444,14 @@ ProjectModel.hasOne(StatusModel, {
     foreignKey: 'status_id',
     as: 'status_id'
 })
-
+UserModel.hasMany(RoleModel, {
+    foreignKey: 'user_id',
+    as: 'roles'
+})
+RoleModel.belongsTo(UserModel, {
+    foreignKey: 'user_id',
+    as: 'user'
+})
 CustomerModel.hasMany(AddressModel, {
     foreignKey: 'customer_id',
     as: 'addresses'
@@ -344,6 +459,40 @@ CustomerModel.hasMany(AddressModel, {
 AddressModel.belongsTo(CustomerModel, {
     foreignKey: 'customer_id',
     as: 'customer'
+})
+
+RoleModel.hasMany(RoleModel, {
+    foreignKey: 'parent_id',
+    as: 'parent_role'
+})
+RoleModel.belongsTo(RoleModel, {
+    foreignKey: 'parent_id',
+    as: 'child_role'
+})
+
+NotificationModel.belongsTo(CommentsModel, {
+    foreignKey: 'comment_id',
+    as: 'comment'
+})
+CommentsModel.hasMany(NotificationModel, {
+    foreignKey: 'comment_id',
+    as: 'notifications'
+})
+NotificationViewModel.belongsTo(NotificationModel, {
+    foreignKey: 'notification_id',
+    as: 'notification'
+})
+NotificationModel.hasMany(NotificationViewModel, {
+    foreignKey: 'notification_id',
+    as: 'views'
+})
+NotificationViewModel.belongsTo(UserModel, {
+    foreignKey: 'user_id',
+    as: 'user'
+})
+UserModel.hasMany(NotificationViewModel, {
+    foreignKey: 'user_id',
+    as: 'notifications'
 })
 
 // FinanceModel.hasMany(InvoiceModel, {
@@ -355,4 +504,4 @@ AddressModel.belongsTo(CustomerModel, {
 //     as: 'finances'
 // })
 
-export {ProjectModel, UserModel, CustomerModel, ContactModel, FinanceModel, CommentsModel, AddressModel}
+export {ProjectModel, UserModel, CustomerModel, ContactModel, FinanceModel, CommentsModel, AddressModel, RoleModel, VerificationModel, NotificationModel, NotificationViewModel}

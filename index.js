@@ -8,6 +8,7 @@ import contact from './routes/contact.js'
 import finance from './routes/finance.js'
 import comment from './routes/comment.js'
 import address from './routes/address.js'
+import notification from './routes/notification.js'
 
 import connection from './db/index.js'
 import config from './config/index.js'
@@ -53,6 +54,7 @@ try {
   app.use('/finance', finance)
   app.use('/comment', comment)
   app.use('/address', address)
+  app.use('/notification', notification)
 
   app.use('/housecalpro', createProxyMiddleware({
     target: 'https://api.housecallpro.com',

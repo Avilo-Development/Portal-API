@@ -13,7 +13,13 @@ const config = {
     token_secret: process.env.TOKEN_SECRET,
     port: process.env.PORT,
 
-    hcp_token: process.env.HCP_TOKEN
+    hcp_token: process.env.HCP_TOKEN,
+
+    smtp_host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    smtp_service: process.env.SMTP_SERVICE || 'gmail',
+    smtp_port: process.env.SMTP_PORT || 587,
+    smtp_email: process.env.SMTP_EMAIL || '',
+    smtp_password: process.env.SMTP_PASSWORD || '',
 }
 
 export default config

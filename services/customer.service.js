@@ -1,4 +1,4 @@
-import { col, fn, Op } from 'sequelize';
+import { col, fn, literal, Op } from 'sequelize';
 import { CustomerModel as model, AddressModel as umodel, FinanceModel as cmodel, UserModel as smodel, CommentsModel as zmodel } from '../db/Models.js'
 
 const config = ({ page_size, order_by, order, page }) => {
@@ -46,39 +46,49 @@ export default class CustomerService {
             const finance = financeTotals.find(f => f.customer_id === cust.id) || {};
             return {
                 ...cust.toJSON(),
-                finances: [{
+                finances: {
                     totalItems: Number(finance.totalItems || 0),
                     totalAmount: Number(finance.totalAmount || 0),
                     totalPaid: Number(finance.totalPaid || 0),
                     totalDue: Number(finance.totalDue || 0)
-                }]
+                }
             };
         });
         return return_page({ result: merged, page_size, page })
     }
     async getBy(id) {
-        return await model.findAll({
+        const customers = await model.findAll({
             where: {
                 [Op.or]: [
                     { id: id },
                     { name: { [Op.like]: `%${id}%` } }
                 ]
             },
-            include: [{
-                model: umodel,
-                as: 'addresses',
-            }, {
-                model: cmodel,
-                as: 'finances',
-                attributes: [
-                    [fn('COUNT', col('finances.id')), 'totalItems'],
-                    [fn('SUM', col('finances.amount')), 'totalAmount'],
-                    [fn('SUM', col('finances.paid')), 'totalPaid'],
-                    [fn('SUM', col('finances.due')), 'totalDue']
-                ],
-            }],
-            group: ['id'],
         })
+        const financeTotals = await cmodel.findAll({
+            attributes: [
+                'customer_id',
+                [fn('COUNT', col('id')), 'totalItems'],
+                [fn('SUM', col('amount')), 'totalAmount'],
+                [fn('SUM', col('paid')), 'totalPaid'],
+                [fn('SUM', col('due')), 'totalDue']
+            ],
+            group: ['customer_id'],
+            raw: true
+        });
+        const merged = customers.map((cust) => {
+            const finance = financeTotals.find(f => f.customer_id === cust.id) || {};
+            return {
+                ...cust.toJSON(),
+                finances: {
+                    totalItems: Number(finance.totalItems || 0),
+                    totalAmount: Number(finance.totalAmount || 0),
+                    totalPaid: Number(finance.totalPaid || 0),
+                    totalDue: Number(finance.totalDue || 0)
+                }
+            };
+        });
+        return merged
     }
     async getOne(id) {
         return await model.findByPk(id, {
@@ -91,31 +101,53 @@ export default class CustomerService {
 
                 include: [{
                     model: zmodel,
-                    as: 'comments'
+                    as: 'comments',
+                    include: [
+                        {
+                            model: smodel,
+                            as: 'user',
+                            attributes: ['id', 'name', 'picture', 'role'],
+                            required: true
+                        }
+                    ],
                 }, {
                     model: smodel,
                     as: 'responsible'
                 }]
-            }]
+            }],
+            order: [[{ model: cmodel, as: 'finances' }, { model: zmodel, as: 'comments' }, 'createdAt', 'DESC']]
         })
     }
     async getTotal(id) {
-        return await model.findByPk(id, {
-            include: [{
-                model: cmodel,
-                as: 'finances',
-                attributes: [
-                    [fn('COUNT', col('finances.id')), 'totalItems'],
-                    [fn('SUM', col('finances.amount')), 'totalAmount'],
-                    [fn('SUM', col('finances.paid')), 'totalPaid'],
-                    [fn('SUM', col('finances.due')), 'totalDue'],
-                ]
-            }],
-            group: ['id'],
-        })
+        const customer = await model.findByPk(id)
+        const finance = await cmodel.findAll({
+            where: { customer_id: customer.id },
+            attributes: [
+                'customer_id',
+                [fn('COUNT', col('id')), 'totalItems'],
+                [fn('SUM', col('amount')), 'totalAmount'],
+                [fn('SUM', col('paid')), 'totalPaid'],
+                [fn('SUM', col('due')), 'totalDue']
+            ],
+            group: ['customer_id'],
+            raw: true
+        });
+        console.log(finance)
+        return {
+            ...customer.toJSON(),
+            finances: [{
+                totalItems: Number(finance[0].totalItems || 0),
+                totalAmount: Number(finance[0].totalAmount || 0),
+                totalPaid: Number(finance[0].totalPaid || 0),
+                totalDue: Number(finance[0].totalDue || 0)
+            }]
+        };
     }
     async create(customer) {
         return await model.create(customer);
+    }
+    async reporting(customer) {
+        return await model.upsert(customer);
     }
     async update(id, customer) {
         return await model.update(customer, { where: { id: id } })

@@ -3,11 +3,11 @@ import { Op } from '@sequelize/core';
 import { fn, col, literal } from 'sequelize';
 
 const config = ({ page_size, order_by, order, page }) => {
-    const offset = (page - 1) * page_size
+    const offset = (page) * page_size
     return {
         limit: parseInt(page_size),
-        offset: parseInt(offset),
-        order: [[order_by, order]],
+        offset: offset,
+        order: [[order_by, order], [{ model: cmodel, as: 'comments' }, 'createdAt', 'DESC']],
     }
 }
 const return_page = ({ result, page_size, page }) => {
@@ -23,11 +23,19 @@ const return_page = ({ result, page_size, page }) => {
     }
 }
 export default class FinanceService {
-    async getAll({ order = 'DESC', page_size = 50, page = 1, order_by = 'job_date' }) {
-
-        const result = await model.findAndCountAll({
-            ...config({ page_size, order_by, order, page }),
-            where: { amount: { [Op.gt]: 0 } },
+    async getAll(query) {
+        let _last = new Date(query.date || '2025-01-01')
+        _last.setFullYear(_last.getFullYear() + 1)
+        _last = _last.toLocaleDateString('en-CA')
+        const result = await model.findAll({
+            where: {
+                invoice_date: {
+                    [Op.gte]: query.date || '2025-01-01',
+                    [Op.lte]: _last
+                }
+            },
+            distinct: true,
+            subQuery: false,
             include: [{
                 model: umodel,
                 as: 'responsible',
@@ -39,18 +47,20 @@ export default class FinanceService {
                     model: umodel,
                     as: 'user',
                     attributes: ['id', 'name', 'picture', 'role'],
-                }]
+                    required: false
+                }],
             }, {
                 model: smodel,
                 as: 'customer',
                 include: [{
                     model: zmodel,
                     as: 'addresses',
+                    required: false
                 }]
-            },]
+            },],
+            order: [[query?.order_by || 'overdue', query?.order || 'DESC'], [{ model: cmodel, as: 'comments' }, 'createdAt', 'ASC']],
         })
-
-        return return_page({ result, page_size, page })
+        return result
     }
     async getGrouped(date) {
         let _last = new Date(date)
@@ -94,9 +104,25 @@ export default class FinanceService {
             raw: true,
         })
     }
-    async getByResponsible(responsible) {
+    async getByResponsible({ responsible, query }) {
+        let _last = new Date(query?.date || '2025-01-01')
+        if (query?.filter === 'year') { _last.setFullYear(_last.getFullYear() + 1) }
+        if (query?.filter === 'month') { _last.setMonth(_last.getMonth() + 1) }
+        if (query?.filter === 'day') { _last.setMonth(_last.getDay() + 1) }
+        _last = _last.toLocaleDateString('en-CA')
+        if (responsible === 'null') responsible = null
         const data = await model.findAll({
-            where: { responsible_id: responsible },
+            where: {
+                [Op.and]: [
+                    { responsible_id: responsible },
+                    {
+                        job_date: {
+                            [Op.gte]: query.date || '2025-01-01',
+                            [Op.lte]: _last
+                        }
+                    }
+                ]
+            },
             include: [{
                 model: umodel,
                 as: 'responsible',
@@ -108,7 +134,8 @@ export default class FinanceService {
                     model: umodel,
                     as: 'user',
                     attributes: ['id', 'name', 'picture', 'role'],
-                },]
+                },],
+                order: [['createdAt', 'DESC']]
             }, {
                 model: smodel,
                 as: 'customer',
@@ -116,10 +143,21 @@ export default class FinanceService {
                     model: zmodel,
                     as: 'addresses'
                 }
-            }]
+            }],
+            order: [[query?.order_by || 'overdue', query?.order || 'DESC'], [{ model: cmodel, as: 'comments' }, 'createdAt', 'ASC']],
         })
         const totals = await model.findAll({
-            where: { responsible_id: responsible },
+            where: {
+                [Op.and]: [
+                    { responsible_id: responsible },
+                    {
+                        invoice_date: {
+                            [Op.gte]: query.date || '2025-01-01',
+                            [Op.lte]: _last
+                        }
+                    }
+                ]
+            },
             attributes: [
                 [fn('SUM', col('amount')), 'totalAmount'],
                 [fn('SUM', col('paid')), 'totalPaid'],
@@ -128,14 +166,21 @@ export default class FinanceService {
         })
         return { data, ...totals }
     }
-    async getByInvoiceStatus(sent) {
-        const status = sent === 'true'
+    async getByInvoiceStatus({ status, query }) {
+        const date = parseInt(status)
+
+        const where = () => {
+            if (date === 0) return { [Op.and]: [{ overdue: 0 }, { due: 0 }] }
+            if (date === 1) return { overdue: { [Op.gt]: 0 } }
+            if (date < 0) return { overdue: -1 }
+            if (date === 2) return { [Op.and]: [{ overdue: { [Op.gt]: 0 } }, { overdue: { [Op.lte]: 30 } }] }
+            if (date === 30) return { [Op.and]: [{ overdue: { [Op.gte]: date } }, { overdue: { [Op.lte]: 60 } }] }
+            if (date === 60) return { [Op.and]: [{ overdue: { [Op.gte]: date } }, { overdue: { [Op.lte]: 90 } }] }
+            if (date === 90) return { overdue: { [Op.gte]: date } }
+        }
+
         const data = await model.findAll({
-            where: {
-                invoice_date: status ? {
-                    [Op.ne]: null
-                } : null
-            },
+            where: where(),
             include: [{
                 model: umodel,
                 as: 'responsible',
@@ -147,22 +192,20 @@ export default class FinanceService {
                     model: umodel,
                     as: 'user',
                     attributes: ['id', 'name', 'picture', 'role'],
-                }]
+                }],
+                order: [['createdAt', 'DESC']]
             }, {
-                    model: smodel,
-                    as: 'customer',
-                    include: {
-                        model: zmodel,
-                        as: 'addresses'
-                    }
-                }]
+                model: smodel,
+                as: 'customer',
+                include: {
+                    model: zmodel,
+                    as: 'addresses'
+                }
+            }],
+            order: [[query?.order_by || 'job_date', query?.order || 'DESC'], [{ model: cmodel, as: 'comments' }, 'createdAt', 'ASC']],
         })
         const totals = await model.findAll({
-            where: {
-                invoice_date: status ? {
-                    [Op.ne]: null
-                } : null
-            },
+            where: where(),
             attributes: [
                 [fn('SUM', col('amount')), 'totalAmount'],
                 [fn('SUM', col('paid')), 'totalPaid'],
@@ -187,7 +230,15 @@ export default class FinanceService {
             }, {
                 model: cmodel,
                 as: 'comments',
-                attributes: ['id', 'created_by', 'text', 'status', 'createdAt', 'updatedAt']
+                attributes: ['id', 'created_by', 'text', 'status', 'createdAt', 'updatedAt'],
+                include: [
+                    {
+                        model: umodel,
+                        as: 'user',
+                        attributes: ['id', 'name', 'picture', 'role'],
+                        required: true
+                    }
+                ],
             }, {
                 model: smodel,
                 as: 'customer',
@@ -195,7 +246,37 @@ export default class FinanceService {
                     model: zmodel,
                     as: 'addresses'
                 }
-            }]
+            }],
+            order: [[{ model: cmodel, as: 'comments' }, 'createdAt', 'ASC']]
+        })
+    }
+    async getByPK(id) {
+        return await model.findByPk(id, {
+            include: [{
+                model: umodel,
+                as: 'responsible',
+                attributes: ['id', 'name', 'role', 'email']
+            }, {
+                model: cmodel,
+                as: 'comments',
+                attributes: ['id', 'created_by', 'text', 'status', 'createdAt', 'updatedAt'],
+                include: [
+                    {
+                        model: umodel,
+                        as: 'user',
+                        attributes: ['id', 'name', 'picture', 'role'],
+                        required: true
+                    }
+                ],
+            }, {
+                model: smodel,
+                as: 'customer',
+                include: {
+                    model: zmodel,
+                    as: 'addresses'
+                }
+            }],
+            order: [[{ model: cmodel, as: 'comments' }, 'createdAt', 'ASC']]
         })
     }
     async update(id, body) {
@@ -203,6 +284,9 @@ export default class FinanceService {
     }
     async create(finance) {
         return await model.create(finance)
+    }
+    async reporting(finance) {
+        return await model.upsert(finance)
     }
     // async addInvoice(invocie) {
     //     return await imodel.create(invocie)

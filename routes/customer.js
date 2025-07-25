@@ -30,6 +30,11 @@ router.post('/', async (req,res) => {
     const customer = await service.create(body);
     res.json(customer)
 })
+router.post('/reporting', async (req,res) => {
+    const {body} = req
+    const customer = await service.reporting(body);
+    res.json(customer)
+})
 router.patch('/:id', async (req,res) => {
     const {body} = req
     const {id} = req.params

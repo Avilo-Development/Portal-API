@@ -20,9 +20,8 @@ router.get('/account', authenticateToken, async (req, res) => {
 router.post('/', async (req,res) => {
     const {body} = req
     const user = (await service.create(body)).toJSON();
-    const token = generateAccessToken({username: user.id})
     delete user.password
-    res.json({user, token:token})
+    res.json(user)
 })
 router.post('/login',
     passport.authenticate('local'),
@@ -36,6 +35,15 @@ router.post('/login',
         })
     }
 )
+router.post('/verify', async (req, res) => {
+    try{
+        const {email, code} = req.body
+        const account = await service.verify({code, email})
+        res.json(account)
+    }catch(error) {
+        res.status(500).json({ message: 'Error fetching user account', error: error.message });
+    }
+})
 router.patch('/:id', async (req,res) => {
     const {body} = req
     const {id} = req.params

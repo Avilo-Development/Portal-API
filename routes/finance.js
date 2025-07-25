@@ -27,17 +27,24 @@ router.get('/summary', authenticateToken, async (req,res) => {
 })
 router.get('/:id', authenticateToken, async (req,res) => {
     const {id} = req.params
+    const finance = await service.getByPK(id)
+    res.json(finance)
+})
+router.get('/by/:id', authenticateToken, async (req,res) => {
+    const {id} = req.params
     const finance = await service.getOne(id)
     res.json(finance)
 })
 router.get('/responsible/:id', authenticateToken, async (req,res) => {
     const {id} = req.params
-    const finance = await service.getByResponsible(id)
+    const query = req.query
+    const finance = await service.getByResponsible({responsible:id, query})
     res.json(finance)
 })
-router.get('/invoice/:sent', authenticateToken, async (req,res) => {
-    const {sent} = req.params
-    const finance = await service.getByInvoiceStatus(sent)
+router.get('/invoice/:status', authenticateToken, async (req,res) => {
+    const {status} = req.params
+    const query = req.query
+    const finance = await service.getByInvoiceStatus({status, query})
     res.json(finance)
 })
 router.patch('/:id', authenticateToken, async (req, res) => {
@@ -50,6 +57,11 @@ router.post('/', authenticateToken, async (req,res) => {
     const body = req.body
     const {username} = req.user
     const finance = await service.create({...body, responsible_id:username})
+    res.json(finance)
+})
+router.post('/reporting', authenticateToken, async (req,res) => {
+    const body = req.body
+    const finance = await service.reporting({...body, responsible_id:null})
     res.json(finance)
 })
 // router.post('/invoice', authenticateToken, async (req,res) => {
