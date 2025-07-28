@@ -1,28 +1,14 @@
-import { FinanceModel as model, UserModel as umodel, CommentsModel as cmodel, CustomerModel as smodel, AddressModel as zmodel } from "../db/Models.js";
+import { FinanceModel as model, UserModel as umodel, CommentsModel as cmodel, CustomerModel as smodel, AddressModel as zmodel, RoleModel as rmodel } from "../db/Models.js";
 import { Op } from '@sequelize/core';
 import { fn, col, literal } from 'sequelize';
+import NotificationService from "./notification.service.js";
+import CommentService from "./comment.service.js";
 
-const config = ({ page_size, order_by, order, page }) => {
-    const offset = (page) * page_size
-    return {
-        limit: parseInt(page_size),
-        offset: offset,
-        order: [[order_by, order], [{ model: cmodel, as: 'comments' }, 'createdAt', 'DESC']],
-    }
-}
-const return_page = ({ result, page_size, page }) => {
-    const total_items = result.count
-    const total_pages = Math.ceil(total_items / page_size);
-
-    return {
-        total_items,
-        total_pages,
-        page,
-        page_size,
-        data: result.rows
-    }
-}
 export default class FinanceService {
+    constructor(){
+        this.notificationService = new NotificationService()
+        this.commentService = new CommentService()
+    }
     async getAll(query) {
         let _last = new Date(query.date || '2025-01-01')
         _last.setFullYear(_last.getFullYear() + 1)
@@ -39,15 +25,23 @@ export default class FinanceService {
             include: [{
                 model: umodel,
                 as: 'responsible',
-                attributes: ['id', 'name', 'role', 'email']
+                attributes: ['id', 'name', 'email'],
+                include: [{
+                    model: rmodel,
+                    as: 'role',
+                }]
             }, {
                 model: cmodel,
                 as: 'comments',
                 include: [{
                     model: umodel,
                     as: 'user',
-                    attributes: ['id', 'name', 'picture', 'role'],
-                    required: false
+                    attributes: ['id', 'name', 'picture'],
+                    required: false,
+                    include: [{
+                        model: rmodel,
+                        as: 'role',
+                    }]
                 }],
             }, {
                 model: smodel,
@@ -126,14 +120,22 @@ export default class FinanceService {
             include: [{
                 model: umodel,
                 as: 'responsible',
-                attributes: ['id', 'name', 'role', 'email']
+                attributes: ['id', 'name', 'email'],
+                include: [{
+                    model: rmodel,
+                    as: 'role',
+                }]
             }, {
                 model: cmodel,
                 as: 'comments',
                 include: [{
                     model: umodel,
                     as: 'user',
-                    attributes: ['id', 'name', 'picture', 'role'],
+                    attributes: ['id', 'name', 'picture'],
+                    include: [{
+                        model: rmodel,
+                        as: 'role',
+                    }]
                 },],
                 order: [['createdAt', 'DESC']]
             }, {
@@ -184,14 +186,22 @@ export default class FinanceService {
             include: [{
                 model: umodel,
                 as: 'responsible',
-                attributes: ['id', 'name', 'role', 'email']
+                attributes: ['id', 'name', 'email'],
+                include: [{
+                    model: rmodel,
+                    as: 'role',
+                }]
             }, {
                 model: cmodel,
                 as: 'comments',
                 include: [{
                     model: umodel,
                     as: 'user',
-                    attributes: ['id', 'name', 'picture', 'role'],
+                    attributes: ['id', 'name', 'picture'],
+                    include: [{
+                        model: rmodel,
+                        as: 'role',
+                    }]
                 }],
                 order: [['createdAt', 'DESC']]
             }, {
@@ -226,7 +236,11 @@ export default class FinanceService {
             include: [{
                 model: umodel,
                 as: 'responsible',
-                attributes: ['id', 'name', 'role', 'email']
+                attributes: ['id', 'name', 'email'],
+                include: [{
+                    model: rmodel,
+                    as: 'role',
+                }]
             }, {
                 model: cmodel,
                 as: 'comments',
@@ -235,8 +249,12 @@ export default class FinanceService {
                     {
                         model: umodel,
                         as: 'user',
-                        attributes: ['id', 'name', 'picture', 'role'],
-                        required: true
+                        attributes: ['id', 'name', 'picture'],
+                        required: true,
+                        include: [{
+                            model: rmodel,
+                            as: 'role',
+                        }]
                     }
                 ],
             }, {
@@ -255,7 +273,11 @@ export default class FinanceService {
             include: [{
                 model: umodel,
                 as: 'responsible',
-                attributes: ['id', 'name', 'role', 'email']
+                attributes: ['id', 'name', 'email'],
+                include: [{
+                    model: rmodel,
+                    as: 'role',
+                }]
             }, {
                 model: cmodel,
                 as: 'comments',
@@ -264,8 +286,14 @@ export default class FinanceService {
                     {
                         model: umodel,
                         as: 'user',
-                        attributes: ['id', 'name', 'picture', 'role'],
-                        required: true
+                        attributes: ['id', 'name', 'picture'],
+                        required: true,
+                        include: [
+                            {
+                                model: rmodel,
+                                as: 'role',
+                            }
+                        ]
                     }
                 ],
             }, {
@@ -281,6 +309,12 @@ export default class FinanceService {
     }
     async update(id, body) {
         return await model.update(body, { where: { id: id } })
+    }
+    async setResponsible(id, body) {
+        await model.update({responsible_id:body?.responsible?.id}, { where: { id: id } })
+        const comment = await this.commentService.createStatus({created_by:body?.created_by, finance_id:body?.finance_id}, body?.responsible)
+
+        return comment
     }
     async create(finance) {
         return await model.create(finance)

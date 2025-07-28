@@ -8,8 +8,17 @@ export default class CommentService {
         try{
             const result =  await model.create(comment)
             const message = `New comment on ${new Date(result.createdAt).toLocaleDateString()}`
-            console.log(message)
+            await this.notificationService.create({user_id: result.created_by, message, comment_id: result.id})
 
+            return result
+        } catch (error) {
+            throw Error(error);
+        }
+    }
+    async createStatus(comment, executor) {
+        try{
+            const message = `${executor?.name} has been assigned on ${new Date().toLocaleDateString()}`
+            const result =  await model.create({text:message, status:'system', created_by:comment.created_by, finance_id:comment.finance_id})
             await this.notificationService.create({user_id: result.created_by, message, comment_id: result.id})
 
             return result

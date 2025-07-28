@@ -1,7 +1,7 @@
 import { Op } from 'sequelize';
 import { hashEncode } from '../config/crypto.js';
 import config from '../config/index.js';
-import { FinanceModel as pmodel, UserModel as model, VerificationModel as vmodel } from '../db/Models.js'
+import { FinanceModel as pmodel, UserModel as model, VerificationModel as vmodel, RoleModel as rmodel } from '../db/Models.js'
 import nodemailer from 'nodemailer';
 
 export default class UserService {
@@ -42,12 +42,15 @@ export default class UserService {
     async getAll() {
         return await model.findAll({
             where: { verified: true },
-            attributes: ['id', 'name', 'role', 'hcp_link', 'picture', 'email', 'phone', 'birthday', 'createdAt'],
+            attributes: ['id', 'name', 'hcp_link', 'picture', 'email', 'phone', 'birthday', 'createdAt'],
             order: [['createdAt', 'DESC']],
             include: [{
                 model: pmodel,
                 as: 'finances',
                 attributes: ['id', 'job_id', 'customer_id', 'job_number', 'address', 'amount', 'paid', 'due', 'job_date', 'createdAt']
+            }, {
+                model: rmodel,
+                as: 'role'
             }]
         })
     }
@@ -58,7 +61,14 @@ export default class UserService {
                     where,
                     { verified: true }
                 ]
-            }
+            },
+            attributes: ['id', 'name', 'hcp_link', 'picture', 'email', 'phone', 'birthday', 'createdAt', 'role_id', 'password'],
+            include: [
+                {
+                    model: rmodel,
+                    as: 'role'
+                }
+            ]
         })
     }
     async verify({code, email}) {
@@ -70,7 +80,7 @@ export default class UserService {
         if (!verification) {
             throw new Error('User not found');
         }
-        const user = await model.update({verified: true},{ where: { email: email} });
+        const user = await model.update({verified: true, role_id: '000mbdf0-0c0e-00e0-0c0a-000c000a00r0'},{ where: { email: email} });
         console.log('User verified:', user);
         await vmodel.destroy({ where: { id: email } });
         return user;

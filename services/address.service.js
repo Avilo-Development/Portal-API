@@ -8,7 +8,7 @@ export default class AddressService{
         return await model.findOne({where: {id:id}})
     }
     async create(customer){
-        return await model.create(customer);
+        return await model.upsert(customer);
     }
     async update(id, customer){
         return await model.update(customer, {where: {id: id}})

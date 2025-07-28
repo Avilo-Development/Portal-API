@@ -12,5 +12,14 @@ function authenticateToken(req,res,next){
         next()
     })
 }
+function authorizeRoles(...allowedRoles) {
+  return (req, res, next) => {
+    const userRole = req.user?.role; // Assumes user already authenticated
+    if (!allowedRoles.includes(userRole)) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+    next();
+  };
+}
 
-export {authenticateToken}
+export {authenticateToken, authorizeRoles}

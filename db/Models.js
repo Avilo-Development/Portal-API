@@ -89,9 +89,9 @@ const UserModel = sequelize.define('User',
             type: DataTypes.STRING,
             allowNull:false,
         },
-        role: {
-            type: DataTypes.STRING,
-            allowNull:false,
+        role_id: {
+            type: DataTypes.UUID,
+            allowNull:true,
         },
         hcp_link: {
             type: DataTypes.STRING,
@@ -124,7 +124,6 @@ const UserModel = sequelize.define('User',
         }
     }
 )
-
 const VerificationModel = sequelize.define('Verification',
     {
         id:{
@@ -321,6 +320,10 @@ const RoleModel = sequelize.define('Role', {
         type: DataTypes.STRING,
         allowNull: false,
     },
+    short: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
     parent_id: {
         type: DataTypes.UUID,
         allowNull: true,
@@ -444,14 +447,6 @@ ProjectModel.hasOne(StatusModel, {
     foreignKey: 'status_id',
     as: 'status_id'
 })
-UserModel.hasMany(RoleModel, {
-    foreignKey: 'user_id',
-    as: 'roles'
-})
-RoleModel.belongsTo(UserModel, {
-    foreignKey: 'user_id',
-    as: 'user'
-})
 CustomerModel.hasMany(AddressModel, {
     foreignKey: 'customer_id',
     as: 'addresses'
@@ -463,11 +458,19 @@ AddressModel.belongsTo(CustomerModel, {
 
 RoleModel.hasMany(RoleModel, {
     foreignKey: 'parent_id',
-    as: 'parent_role'
+    as: 'parent'
 })
 RoleModel.belongsTo(RoleModel, {
     foreignKey: 'parent_id',
-    as: 'child_role'
+    as: 'children'
+})
+RoleModel.hasMany(UserModel, {
+    foreignKey: 'role_id',
+    as: 'users'
+})
+UserModel.belongsTo(RoleModel, {
+    foreignKey: 'role_id',
+    as: 'role'
 })
 
 NotificationModel.belongsTo(CommentsModel, {

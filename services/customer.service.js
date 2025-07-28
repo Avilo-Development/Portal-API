@@ -1,5 +1,5 @@
 import { col, fn, literal, Op } from 'sequelize';
-import { CustomerModel as model, AddressModel as umodel, FinanceModel as cmodel, UserModel as smodel, CommentsModel as zmodel } from '../db/Models.js'
+import { CustomerModel as model, AddressModel as umodel, FinanceModel as cmodel, UserModel as smodel, CommentsModel as zmodel, RoleModel as rmodel } from '../db/Models.js'
 
 const config = ({ page_size, order_by, order, page }) => {
     const offset = (page - 1) * page_size
@@ -25,7 +25,6 @@ const return_page = ({ result, page_size, page }) => {
 export default class CustomerService {
     async getAll({ order = 'DESC', page_size = 50, page = 1, order_by = 'createdAt' }) {
         const customers = await model.findAndCountAll({
-            ...config({ page_size, order_by, order, page }),
             include: [{
                 model: umodel,
                 as: 'addresses',
@@ -37,8 +36,14 @@ export default class CustomerService {
                 [fn('COUNT', col('id')), 'totalItems'],
                 [fn('SUM', col('amount')), 'totalAmount'],
                 [fn('SUM', col('paid')), 'totalPaid'],
-                [fn('SUM', col('due')), 'totalDue']
+                [fn('SUM', col('due')), 'totalDue'],
+                [fn('AVG', col('overdue')), 'averageOverdue']
             ],
+            where: {
+                overdue: {
+                    [Op.gt]: 0 // Only include values greater than 0
+                }
+            },
             group: ['customer_id'],
             raw: true
         });
@@ -50,11 +55,13 @@ export default class CustomerService {
                     totalItems: Number(finance.totalItems || 0),
                     totalAmount: Number(finance.totalAmount || 0),
                     totalPaid: Number(finance.totalPaid || 0),
-                    totalDue: Number(finance.totalDue || 0)
+                    totalDue: Number(finance.totalDue || 0),
+                    averageOverdue: Number(finance.averageOverdue || 0)
                 }
             };
         });
-        return return_page({ result: merged, page_size, page })
+        const sorted = merged.sort((a, b) => b.finances.averageOverdue - a.finances.averageOverdue);
+        return sorted
     }
     async getBy(id) {
         const customers = await model.findAll({
@@ -106,9 +113,13 @@ export default class CustomerService {
                         {
                             model: smodel,
                             as: 'user',
-                            attributes: ['id', 'name', 'picture', 'role'],
-                            required: true
-                        }
+                            attributes: ['id', 'name', 'picture'],
+                            required: true,
+                            include: [{
+                                model: rmodel,
+                                as: 'role',
+                            }]
+                        },
                     ],
                 }, {
                     model: smodel,

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authenticateToken } from "../middlewares/authentication.js";
+import { authenticateToken, authorizeRoles } from "../middlewares/authentication.js";
 import FinanceService from "../services/finace.service.js";
 
 const router = Router()
@@ -47,12 +47,19 @@ router.get('/invoice/:status', authenticateToken, async (req,res) => {
     const finance = await service.getByInvoiceStatus({status, query})
     res.json(finance)
 })
-router.patch('/:id', authenticateToken, async (req, res) => {
+router.patch('/:id', authenticateToken, authorizeRoles('908mbdf4-5c1e-49e9-9c5a-324c921a80e8','908mbdf4-5c1e-49e9-9c5a-324c921a90r3','908mbdf4-5c1e-49e9-9c5a-324c921a90r4'), async (req, res) => {
     const {responsible_id} = req.body
     const {id} = req.params
     const finance = await service.update(id, {responsible_id})
     res.json(finance)
 })
+<router.patch('/responsible/:id', authenticateToken, authorizeRoles('908mbdf4-5c1e-49e9-9c5a-324c921a80e8','908mbdf4-5c1e-49e9-9c5a-324c921a90r3','908mbdf4-5c1e-49e9-9c5a-324c921a90r4'), async (req, res) => {
+    const body = req.body
+    const {username} = req.user
+    const {id} = req.params
+    const finance = await service.setResponsible(id, {...body, created_by: username})
+    res.json(finance)
+})>
 router.post('/', authenticateToken, async (req,res) => {
     const body = req.body
     const {username} = req.user
