@@ -5,7 +5,7 @@ import NotificationService from "./notification.service.js";
 import CommentService from "./comment.service.js";
 
 export default class FinanceService {
-    constructor(){
+    constructor() {
         this.notificationService = new NotificationService()
         this.commentService = new CommentService()
     }
@@ -15,10 +15,18 @@ export default class FinanceService {
         _last = _last.toLocaleDateString('en-CA')
         const result = await model.findAll({
             where: {
-                invoice_date: {
-                    [Op.gte]: query.date || '2025-01-01',
-                    [Op.lte]: _last
-                }
+                [Op.and]: [
+                    {
+                        service_date: {
+                            [Op.gte]: query.date || '2025-01-01',
+                            [Op.lte]: _last,
+                            [Op.ne]: null
+                        }
+                    },
+                    {
+                        amount: { [Op.gt]: 0 }
+                    }
+                ]
             },
             distinct: true,
             subQuery: false,
@@ -70,7 +78,8 @@ export default class FinanceService {
             where: {
                 invoice_date: {
                     [Op.gte]: date,
-                    [Op.lte]: _last
+                    [Op.lte]: _last,
+                    [Op.ne]: null
                 }
             },
             group: [literal('month')],
@@ -92,7 +101,8 @@ export default class FinanceService {
             where: {
                 invoice_date: {
                     [Op.gte]: _date,
-                    [Op.lte]: _last_date
+                    [Op.lte]: _last_date,
+                    //[Op.ne]: null
                 }
             },
             raw: true,
@@ -110,9 +120,10 @@ export default class FinanceService {
                 [Op.and]: [
                     { responsible_id: responsible },
                     {
-                        job_date: {
+                        service_date: {
                             [Op.gte]: query.date || '2025-01-01',
-                            [Op.lte]: _last
+                            [Op.lte]: _last,
+                            [Op.ne]: null
                         }
                     }
                 ]
@@ -153,9 +164,10 @@ export default class FinanceService {
                 [Op.and]: [
                     { responsible_id: responsible },
                     {
-                        invoice_date: {
+                        service_date: {
                             [Op.gte]: query.date || '2025-01-01',
-                            [Op.lte]: _last
+                            [Op.lte]: _last,
+                            [Op.ne]: null
                         }
                     }
                 ]
@@ -212,7 +224,7 @@ export default class FinanceService {
                     as: 'addresses'
                 }
             }],
-            order: [[query?.order_by || 'job_date', query?.order || 'DESC'], [{ model: cmodel, as: 'comments' }, 'createdAt', 'ASC']],
+            order: [[query?.order_by || 'service_date', query?.order || 'DESC'], [{ model: cmodel, as: 'comments' }, 'createdAt', 'ASC']],
         })
         const totals = await model.findAll({
             where: where(),
@@ -311,8 +323,8 @@ export default class FinanceService {
         return await model.update(body, { where: { id: id } })
     }
     async setResponsible(id, body) {
-        await model.update({responsible_id:body?.responsible?.id}, { where: { id: id } })
-        const comment = await this.commentService.createStatus({created_by:body?.created_by, finance_id:body?.finance_id}, body?.responsible)
+        await model.update({ responsible_id: body?.responsible?.id }, { where: { id: id } })
+        const comment = await this.commentService.createStatus({ created_by: body?.created_by, finance_id: body?.finance_id }, body?.responsible)
 
         return comment
     }
