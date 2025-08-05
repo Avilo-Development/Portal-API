@@ -68,7 +68,7 @@ router.post('/', authenticateToken, async (req,res) => {
 })
 router.post('/reporting', authenticateToken, async (req,res) => {
     const body = req.body
-    const finance = await service.reporting({...body, responsible_id:null})
+    const finance = await service.reporting(body)
     res.json(finance)
 })
 // router.post('/invoice', authenticateToken, async (req,res) => {
