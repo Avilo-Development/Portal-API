@@ -300,12 +300,15 @@ const FinanceModel = sequelize.define('Finance', {
         type: DataTypes.DATE,
         allowNull: true,
     },
+    completed_at:{
+        type: DataTypes.DATE,
+        allowNull: true,
+    },
     overdue: {
         type: DataTypes.INTEGER,
         defaultValue: 0,
         allowNull: true,
     },
-
 
 })
 
@@ -346,7 +349,7 @@ const CommentsModel = sequelize.define('Comment', {
         allowNull: false,
     },
     text: {
-        type: DataTypes.STRING,
+        type: DataTypes.TEXT,
         allowNull:false,
     },
     status: {

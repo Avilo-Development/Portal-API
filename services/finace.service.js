@@ -70,13 +70,13 @@ export default class FinanceService {
         _last = _last.toLocaleDateString('en-CA')
         return await model.findAll({
             attributes: [
-                [fn('DATE_FORMAT', col('invoice_date'), '%Y-%m'), 'month'],
+                [fn('DATE_FORMAT', col('completed_at'), '%Y-%m'), 'month'],
                 [fn('SUM', col('amount')), 'totalAmount'],
                 [fn('SUM', col('paid')), 'totalPaid'],
                 [fn('SUM', col('due')), 'totalDue']
             ],
             where: {
-                invoice_date: {
+                completed_at: {
                     [Op.gte]: date,
                     [Op.lte]: _last,
                     [Op.ne]: null
@@ -99,7 +99,7 @@ export default class FinanceService {
                 [fn('SUM', col('due')), 'totalDue'],
             ],
             where: {
-                invoice_date: {
+                completed_at: {
                     [Op.gte]: _date,
                     [Op.lte]: _last_date,
                     //[Op.ne]: null
