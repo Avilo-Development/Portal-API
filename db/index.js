@@ -9,7 +9,7 @@ export const sequelize = new Sequelize(config.db_main, config.db_user, config.db
 export default async function connection() {
     try {
         await sequelize.authenticate()
-        await sequelize.sync({ force: false, alter:true }).then(() => {
+        await sequelize.sync({ force: false, alter:false }).then(() => {
             console.log('Database & Tables created if did not exist!')
         }).catch((error) => {
             console.error('Error creating database & tables:', error);

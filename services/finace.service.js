@@ -76,11 +76,18 @@ export default class FinanceService {
                 [fn('SUM', col('due')), 'totalDue']
             ],
             where: {
-                completed_at: {
-                    [Op.gte]: date,
-                    [Op.lte]: _last,
-                    [Op.ne]: null
-                }
+                [Op.and]: [
+                    {
+                        completed_at: {
+                        [Op.gte]: date,
+                        [Op.lte]: _last,
+                        [Op.ne]: null
+                    },
+                    },
+                    {
+                        due: { [Op.gt]: 0 }
+                    }
+                ]
             },
             group: [literal('month')],
             order: [[literal('month'), 'ASC']],
@@ -99,11 +106,18 @@ export default class FinanceService {
                 [fn('SUM', col('due')), 'totalDue'],
             ],
             where: {
-                completed_at: {
-                    [Op.gte]: _date,
-                    [Op.lte]: _last_date,
-                    //[Op.ne]: null
-                }
+                [Op.and]: [
+                    {
+                        completed_at: {
+                            [Op.gte]: _date,
+                            [Op.lte]: _last_date,
+                            [Op.ne]: null
+                        }
+                    },
+                    {
+                        due: { [Op.gt]: 0 }
+                    }
+                ]
             },
             raw: true,
         })
