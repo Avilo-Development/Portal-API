@@ -17,14 +17,14 @@ export default class FinanceService {
             where: {
                 [Op.and]: [
                     {
-                        service_date: {
+                        completed_at: {
                             [Op.gte]: query.date || '2025-01-01',
                             [Op.lte]: _last,
                             [Op.ne]: null
                         }
                     },
                     {
-                        amount: { [Op.gt]: 0 }
+                        due: { [Op.gt]: 0 }
                     }
                 ]
             },
